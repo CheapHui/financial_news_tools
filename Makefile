@@ -46,3 +46,17 @@ ai-industry:
 
 # 一鍵全自動：Seed + 生成公司 + 行業
 init-all: seed ai-company ai-industry
+
+news-ingest:
+	cd mytrading && python manage.py ingest_rss --max 40
+
+news-embed:
+	cd mytrading && python manage.py embed_news --days-back 7 --limit 500
+
+news-full: news-ingest news-embed
+
+emb-research:
+	python manage.py build_research_embeddings --overwrite
+
+emb-research-fast:
+	python manage.py build_research_embeddings --limit 200

@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from reference.models import Company, Industry
-
+from pgvector.django import VectorField
 
 # --------- 共用基類 ---------
 class TimeStampedModel(models.Model):
@@ -28,9 +28,12 @@ class CompanyProfile(TimeStampedModel):
     company = models.OneToOneField(Company, on_delete=models.CASCADE, related_name="profile")
     business_model_summary = models.TextField(blank=True, default="")
     growth_drivers = models.TextField(blank=True, default="")
+    context_text = models.TextField(blank=True, default="")
     notes = models.TextField(blank=True, default="")
 
     def to_card_text(self) -> str:
+        if self.context_text.strip():
+            return self.context_text.strip()
         parts = []
         if self.business_model_summary:
             parts.append(f"Business model: {self.business_model_summary}")
@@ -127,11 +130,14 @@ class CompanyRisk(TimeStampedModel):
     likelihood_1_5 = models.IntegerField(default=3)
     source_url = models.URLField(blank=True, default="")
     as_of = models.DateField(null=True, blank=True)
+    context_text = models.TextField(blank=True, default="")
 
     class Meta:
         indexes = [models.Index(fields=["company", "category"])]
 
     def to_card_text(self) -> str:
+        if self.context_text.strip():
+            return self.context_text.strip()
         when = self.as_of.isoformat() if self.as_of else timezone.now().date().isoformat()
         return (f"Risk ({self.company.ticker}) [{self.category}] as of {when}: "
                 f"horizon={self.horizon}, severity={self.severity_1_5}/5, "
@@ -142,6 +148,7 @@ class CompanyCatalyst(TimeStampedModel):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="catalysts")
     description = models.TextField()
     positive = models.BooleanField(default=True)
+    context_text = models.TextField(blank=True, default="")
     timeframe_months = models.IntegerField(null=True, blank=True)
     probability_0_1 = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)  # 0.00..1.00
     expected_impact = models.TextField(blank=True, default="")
@@ -152,6 +159,8 @@ class CompanyCatalyst(TimeStampedModel):
         indexes = [models.Index(fields=["company", "positive"])]
 
     def to_card_text(self) -> str:
+        if self.context_text.strip():
+            return self.context_text.strip()
         pos = "Positive" if self.positive else "Negative"
         prob = f"prob={self.probability_0_1}" if self.probability_0_1 is not None else "prob=N/A"
         tf = f"{self.timeframe_months}m" if self.timeframe_months else "N/A"
@@ -190,6 +199,7 @@ class CompanyRelatedStock(TimeStampedModel):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="related_stocks")
     symbol = models.CharField(max_length=20)
     name = models.CharField(max_length=200, blank=True, default="")
+    context_text = models.TextField(blank=True, default="")
     relation_text = models.TextField()  # 兩句描述
     relation_type = models.CharField(max_length=80, blank=True, default="")  # e.g. supplier, customer, peer, ETF
 
@@ -198,6 +208,8 @@ class CompanyRelatedStock(TimeStampedModel):
         indexes = [models.Index(fields=["company"])]
 
     def to_card_text(self) -> str:
+        if self.context_text.strip():
+            return self.context_text.strip()
         nm = f"{self.name} " if self.name else ""
         rtype = f" ({self.relation_type})" if self.relation_type else ""
         return f"Related to {self.company.ticker}: {nm}{self.symbol}{rtype}. {self.relation_text}"
@@ -208,11 +220,14 @@ class CompanyThesis(TimeStampedModel):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="theses")
     side = models.CharField(max_length=8, choices=SIDE)
     content = models.TextField()
+    context_text = models.TextField(blank=True, default="")
 
     class Meta:
         indexes = [models.Index(fields=["company", "side"])]
 
     def to_card_text(self) -> str:
+        if self.context_text.strip():
+            return self.context_text.strip()
         label = "Bull case" if self.side == "for" else "Bear case"
         return f"{self.company.ticker} {label}: {self.content}"
 
@@ -228,8 +243,12 @@ class IndustryProfile(TimeStampedModel):
     trends = models.TextField(blank=True, default="")
     catalysts = models.TextField(blank=True, default="")
     value_chain_summary = models.TextField(blank=True, default="")
+    context_text = models.TextField(blank=True, default="")
 
     def to_card_text(self) -> str:
+        # 如果 context_text 有值，則直接返回 context_text
+        if self.context_text.strip():
+            return self.context_text.strip()
         parts = []
         if self.overview_under_1000w:
             parts.append(f"Overview: {self.overview_under_1000w}")
@@ -252,6 +271,7 @@ class IndustryPlayer(TimeStampedModel):
     name = models.CharField(max_length=200)  # 如無公司主檔，用 name 填
     role = models.CharField(max_length=20, choices=ROLE, default="producer")
     summary_under_300w = models.TextField(blank=True, default="")
+    context_text = models.TextField(blank=True, default="")
     largest_customers_json = models.JSONField(default=list, help_text='[{"name":"X","revenue_pct":30}]')
     largest_suppliers_json = models.JSONField(default=list, help_text='[{"name":"Y","cost_pct":20}]')
     revenue_growth_5y_pct = PctField(null=True, blank=True)
@@ -263,6 +283,8 @@ class IndustryPlayer(TimeStampedModel):
         indexes = [models.Index(fields=["industry","role"])]
 
     def to_card_text(self) -> str:
+        if self.context_text.strip():
+            return self.context_text.strip()
         comp = self.company.ticker if self.company else (self.symbol or self.name)
         rg = f"Rev 5Y {self.revenue_growth_5y_pct}%" if self.revenue_growth_5y_pct is not None else ""
         pg = f"Profit 5Y {self.profit_growth_5y_pct}%" if self.profit_growth_5y_pct is not None else ""
@@ -272,3 +294,18 @@ class IndustryPlayer(TimeStampedModel):
             rg, pg
         ]
         return " ".join([x for x in lines if x]).strip()
+    
+class ResearchEmbedding(models.Model):
+    object_type = models.CharField(max_length=40)   # 'company_profile' | 'company_risk' | ...
+    object_id = models.IntegerField()               # 對應原表主鍵
+    chunk_id = models.IntegerField(default=0)       # 如需切塊
+    model_name = models.CharField(max_length=64)
+    dim = models.IntegerField()
+    vector = VectorField(dimensions=1024)
+    meta = models.JSONField(default=dict)           # {"company_id": 1, "year": 2024, "field": "description"}
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["object_type", "object_id"]),
+        ]
