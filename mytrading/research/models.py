@@ -309,3 +309,31 @@ class ResearchEmbedding(models.Model):
         indexes = [
             models.Index(fields=["object_type", "object_id"]),
         ]
+
+class AnalyticsCompanySignal(models.Model):
+    """
+    某時間窗（window）內，聚合自新聞×研究匹配的公司級信號分數
+    """
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="signals")
+    window_start = models.DateTimeField()
+    window_end = models.DateTimeField()
+
+    # 聚合分數（可正可負）
+    score = models.FloatField(default=0.0)
+
+    # 額外診斷/可視化
+    details_json = models.JSONField(default=list)   # [{news_id, chunk_id, obj_type, obj_id, sim, contrib, decay, polarity}]
+    top_news_ids = models.JSONField(default=list)   # [news_id,...]
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["company", "window_end"]),
+            models.Index(fields=["window_start", "window_end"]),
+        ]
+        unique_together = [("company", "window_start", "window_end")]
+
+    def __str__(self):
+        return f"{self.company.ticker} {self.window_start.date()}–{self.window_end.date()} score={self.score:.3f}"

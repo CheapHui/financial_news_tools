@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "reference", "news", "api", "ops",
     "fundamentals",
     "research",
+    "analytics",
 ]
 
 MIDDLEWARE = [

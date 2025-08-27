@@ -28,6 +28,7 @@ test-pgvector-docker:
 	docker exec -it pgvector-db psql -U $${POSTGRES_USER:-app} -d $${POSTGRES_DB:-mytrading} -c "SELECT id, title, embedding <#> '[0.9,0.8,0.1]'::vector AS cosine_dist FROM demo_vectors ORDER BY cosine_dist ASC;"
 
 seed:
+
 	python manage.py migrate
 	python manage.py seed_reference_data --purge
 
@@ -60,3 +61,9 @@ emb-research:
 
 emb-research-fast:
 	python manage.py build_research_embeddings --limit 200
+
+aliases:
+	cd mytrading && python manage.py build_entity_aliases
+
+link-news:
+	cd mytrading && python manage.py link_news_entities --days-back 7 --limit 800
