@@ -19,26 +19,30 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
-
-# Virtual Environment
-.venv/
-venv/
-ENV/
-env/
 
 # Django
 *.log
 local_settings.py
 db.sqlite3
-db.sqlite3-journal
-/static/
-/media/
+media/
 
 # Environment variables
 .env
 .env.local
-.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Frontend build
+frontend/dist/
+frontend/build/
 
 # IDE
 .vscode/
@@ -55,20 +59,12 @@ db.sqlite3-journal
 ehthumbs.db
 Thumbs.db
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
 # Docker
-docker-compose.override.yml
+.docker/
 
 # Logs
-logs/
+logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # Runtime data
 pids
@@ -82,9 +78,33 @@ coverage/
 # nyc test coverage
 .nyc_output
 
-# node_modules (if using Node.js tools)
+# Dependency directories
 node_modules/
+jspm_packages/
 
-# Temporary files
-tmp/
-temp/
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless

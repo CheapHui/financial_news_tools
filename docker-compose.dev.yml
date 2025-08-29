@@ -30,38 +30,7 @@ services:
       - redis-data:/data
     restart: unless-stopped
 
-  # MinIO 对象存储服务
-  minio:
-    image: quay.io/minio/minio:latest
-    container_name: minio-store
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-adminadmin}
-    command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Console
-    volumes:
-      - minio-data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  # Qdrant 向量数据库服务
-  qdrant:
-    image: qdrant/qdrant:latest
-    container_name: qdrant-vector
-    ports:
-      - "6333:6333"   # REST
-      - "6334:6334"   # gRPC
-    volumes:
-      - qdrant-data:/qdrant/storage
-    restart: unless-stopped
-
-  # Django 后端服务
+  # Django 后端服务 (开发模式)
   web:
     build: ./backend
     container_name: mytrading-web
@@ -85,22 +54,26 @@ services:
       - AWS_ACCESS_KEY_ID=admin
       - AWS_SECRET_ACCESS_KEY=adminadmin
     volumes:
-      - ./backend:/app
+      - ./backend:/app  # 實時同步後端代碼
     restart: unless-stopped
 
-  # React 前端服务
-  frontend:
+  # React 前端服务 (开发模式 - Vite dev server)
+  frontend-dev:
     build:
       context: ./frontend
-    container_name: mytrading-frontend
+      dockerfile: Dockerfile.dev  # 我們需要創建這個文件
+    container_name: mytrading-frontend-dev
     depends_on:
       - web
     ports:
-      - "3000:80"     # 本机 http://localhost:3000
+      - "3000:3000"     # Vite dev server 端口
+    volumes:
+      - ./frontend:/app  # 實時同步前端代碼
+      - /app/node_modules  # 保持 node_modules 在容器內
+    environment:
+      - CHOKIDAR_USEPOLLING=true  # 為了在 Docker 中正確檢測文件變化
     restart: unless-stopped
 
 volumes:
   db-data:
   redis-data:
-  minio-data:
-  qdrant-data:

@@ -1,173 +1,134 @@
-# Financial News Tools
+# Trading Infrastructure MVP
 
-A comprehensive Django-based trading infrastructure MVP for financial news analysis and vector search.
+一個現代化的金融信號分析平台，採用前後端分離架構。
 
-## Features
+## 🏗️ 項目結構
 
-- **Django REST API** - RESTful API for financial data
-- **Vector Search** - pgvector integration for semantic search
-- **News Analysis** - AI-powered news embedding and analysis
-- **Company Research** - Automated company profile generation
-- **Financial Data** - Fundamental analysis and metrics
-- **Multi-database Support** - PostgreSQL + pgvector, Redis, MinIO, Qdrant
-
-## Architecture
-
-### Services
-- **PostgreSQL + pgvector** - Primary database with vector search capabilities (Port: 5433)
-- **Redis** - Caching and Celery message broker (Port: 6380)
-- **MinIO** - S3-compatible object storage (Port: 9000/9001)
-- **Qdrant** - Vector database for advanced similarity search (Port: 6333/6334)
-
-### Django Apps
-- `reference` - Company, industry, sector reference data
-- `news` - News articles and embeddings
-- `research` - AI-generated company analysis
-- `fundamentals` - Financial metrics and data
-- `api` - REST API endpoints
-- `ops` - Operational tools and monitoring
-
-## Quick Start
-
-### Prerequisites
-- Docker & Docker Compose
-- Python 3.11+
-- Git
-
-### Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/CheapHui/financial_news_tools.git
-   cd financial_news_tools
-   ```
-
-2. **Start infrastructure services**
-   ```bash
-   make up
-   ```
-
-3. **Set up Python environment**
-   ```bash
-   pyenv local 3.11.9
-   source .venv/bin/activate
-   ```
-
-4. **Install dependencies**
-   ```bash
-   pip install "Django>=5.0" djangorestframework "psycopg[binary]" django-environ "celery[redis]" redis boto3 django-storages qdrant-client
-   ```
-
-5. **Run migrations**
-   ```bash
-   cd mytrading
-   python manage.py migrate
-   ```
-
-6. **Create superuser**
-   ```bash
-   python manage.py createsuperuser
-   ```
-
-7. **Start development server**
-   ```bash
-   python manage.py runserver
-   ```
-
-## Environment Configuration
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-# Database
-DB_NAME=mytrading
-DB_USER=app
-DB_PASSWORD=app
-DB_HOST=127.0.0.1
-DB_PORT=5433
-
-# Redis
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6380
-
-# MinIO
-AWS_ACCESS_KEY_ID=admin
-AWS_SECRET_ACCESS_KEY=adminadmin
-AWS_S3_ENDPOINT_URL=http://127.0.0.1:9000
-
-# Qdrant
-QDRANT_URL=http://127.0.0.1:6333
-```
-
-## Available Commands
-
-```bash
-# Infrastructure
-make up              # Start all services
-make down            # Stop all services
-make restart         # Restart all services
-make logs            # View service logs
-
-# Database
-make psql-docker     # Connect to PostgreSQL
-make test-pgvector-docker  # Test vector functionality
-
-# MinIO
-make minio-console   # Open MinIO web interface
-```
-
-## API Endpoints
-
-- `/admin/` - Django admin interface
-- `/api/` - REST API endpoints
-- Health checks and monitoring endpoints
-
-## Development
-
-### Project Structure
 ```
 trading-infra-mvp/
-├── docker-compose.yml    # Infrastructure services
-├── Makefile             # Convenience commands
-├── .env                 # Environment variables
-├── mytrading/           # Django project
-│   ├── mytrading/       # Project settings
-│   ├── reference/       # Reference data models
-│   ├── news/           # News and embeddings
-│   ├── research/       # AI analysis
-│   ├── fundamentals/   # Financial data
-│   ├── api/           # REST API
-│   └── ops/           # Operations
-└── db/
-    └── init/           # Database initialization
+├── backend/                 # Django 後端服務
+│   ├── mytrading/          # Django 應用
+│   ├── requirements.txt    # Python 依賴
+│   └── Dockerfile         # 後端容器配置
+├── frontend/              # React 前端應用
+│   ├── src/              # 源代碼
+│   │   ├── SignalsDashboard.jsx  # 主要儀表板組件
+│   │   └── ...
+│   ├── package.json      # Node.js 依賴
+│   └── Dockerfile        # 前端容器配置
+├── docker-compose.yml    # 生產環境配置
+├── docker-compose.dev.yml # 開發環境配置
+└── nginx.conf           # Nginx 反向代理配置
 ```
 
-### Testing Vector Search
+## 🚀 快速開始
 
-```python
-from news.models import NewsEmbedding
-import numpy as np
+### 開發環境
 
-# Create a news embedding
-embedding = NewsEmbedding.objects.create(
-    model_name="test-model",
-    dim=1024,
-    vector=np.random.rand(1024).tolist()
-)
+#### 方法 1：本地開發（推薦）
+
+**後端服務（Docker）：**
+```bash
+# 啟動後端服務（數據庫、Redis、Django）
+docker compose up -d db redis web
 ```
 
-## Contributing
+**前端服務（本地）：**
+```bash
+# 進入前端目錄
+cd frontend
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+# 安裝依賴
+npm install
 
-## License
+# 啟動開發服務器
+npm run dev
+```
 
-MIT License - see LICENSE file for details.
+訪問：
+- 前端：http://localhost:3000
+- 後端 API：http://localhost:8000
 
-## Support
+#### 方法 2：完整 Docker 環境
 
-For issues and questions, please open a GitHub issue.
+```bash
+# 啟動所有服務
+docker compose -f docker-compose.dev.yml up -d
+
+# 查看日誌
+docker compose -f docker-compose.dev.yml logs -f
+```
+
+### 生產環境
+
+```bash
+# 構建並啟動所有服務
+docker compose up -d --build
+
+# 查看狀態
+docker compose ps
+```
+
+## 🛠️ 技術棧
+
+### 後端
+- **Django** - Web 框架
+- **PostgreSQL + pgvector** - 向量數據庫
+- **Redis** - 緩存和消息隊列
+- **MinIO** - 對象存儲
+- **Qdrant** - 向量搜索引擎
+
+### 前端
+- **React** - UI 框架
+- **Vite** - 構建工具
+- **Tailwind CSS** - 樣式框架
+- **Nginx** - 反向代理（生產環境）
+
+## 📊 功能特性
+
+- **信號分析儀表板** - 實時金融信號監控
+- **新聞匹配系統** - 新聞與研究內容的語義匹配
+- **公司信號追踪** - 個股信號分析
+- **行業趨勢分析** - 行業層面的信號聚合
+- **響應式設計** - 現代化的用戶界面
+
+## 🔧 開發指南
+
+### 前端開發
+```bash
+cd frontend
+npm run dev        # 開發服務器
+npm run build      # 構建生產版本
+npm run lint       # 代碼檢查
+```
+
+### 後端開發
+```bash
+cd backend/mytrading
+python manage.py runserver     # 開發服務器
+python manage.py migrate       # 數據庫遷移
+python manage.py test          # 運行測試
+```
+
+## 🌐 API 端點
+
+- `GET /api/news/<id>/matches` - 獲取新聞匹配
+- `GET /api/companies/<ticker>/signals` - 獲取公司信號
+- `GET /api/industries/<id>/signals` - 獲取行業信號
+
+## 📝 更新日誌
+
+### v2.0.0 - 2025-08-29
+- 🔄 重構為前後端分離架構
+- 🎨 全新的 React + Tailwind CSS 前端
+- 🐳 優化的 Docker 配置
+- 📱 響應式設計改進
+- 🚀 性能優化
+
+## 📄 許可證
+
+MIT License
+
+## 🤝 貢獻
+
+歡迎提交 Issue 和 Pull Request！

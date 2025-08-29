@@ -121,7 +121,7 @@ class CompanySupplierShare(TimeStampedModel):
 
 
 class CompanyRisk(TimeStampedModel):
-    RISK_HORIZON = [("short", "0-12m"), ("medium", "12-36m"), ("long", "36m+")]
+    RISK_HORIZON = [("short", "0-12m"), ("medium", "12-36m"), ("long", "36m+"), ("ongoing", "Ongoing")]
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="risks")
     category = models.CharField(max_length=80)  # e.g. Regulation, Supply, Competition, FX
     description = models.TextField()

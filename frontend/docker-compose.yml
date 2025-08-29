@@ -1,0 +1,20 @@
+services:
+  # 你的 Django 服務，確保 service name = web，port=8000
+  web:
+    build: ./backend
+    container_name: mytrading-web
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    # 其餘 env / volumes / command 省略…
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: mytrading-frontend
+    depends_on:
+      - web
+    ports:
+      - "3000:80"     # 本機 http://localhost:3000
+    # 無需 env；React 用相對路徑打 /api，由 Nginx 反代去 web:8000

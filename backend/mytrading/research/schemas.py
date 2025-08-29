@@ -37,7 +37,7 @@ class SupplierShare(BaseModel):
 class RiskItem(BaseModel):
     category: str  # Regulation/Supply/Competition/FX/Macro/Execution/Cyber/Legal/ESG
     description: str
-    horizon: Literal["short","medium","long"] = "short"
+    horizon: Literal["short","medium","long","ongoing"] = "short"
     severity_1_5: int = Field(3, ge=1, le=5)
     likelihood_1_5: int = Field(3, ge=1, le=5)
     half_life_days: Optional[int] = Field(30, ge=1, le=720)
