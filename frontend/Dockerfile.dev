@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 安裝依賴
-RUN npm ci
+RUN rm -rf node_modules package-lock.json && npm install
 
 # 複製源代碼（在開發模式下會被 volume 覆蓋）
 COPY . .

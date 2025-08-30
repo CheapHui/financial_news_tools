@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db import connection, transaction
 from django.utils import timezone
 from django.apps import apps as django_apps
-
+import json
 from news.models import NewsItem, NewsChunk
 from analytics.models import AnalyticsIndustrySignal
 from reference.models import Company, Industry
@@ -166,6 +166,7 @@ class Command(BaseCommand):
                             help="把 industry 命中分配到公司：weight=按市值；equal=平均；off=不分配")
         parser.add_argument("--industry-top-n", type=int, default=8, help="只把行業信號分配到市值前N家公司")
         parser.add_argument("--include-industry-signal", action="store_true", help="同時計算行業級信號（AnalyticsIndustrySignal）")
+        return super().add_arguments(parser)
 
     @transaction.atomic
     def handle(self, *args, **opts):
@@ -321,3 +322,9 @@ class Command(BaseCommand):
             f"Window={window_start.date()}..{window_end.date()} "
             f"mode={dist_mode}, top_n={top_n}, include_industry={include_industry}"
         ))
+
+        stats = {"companies": int(n_comp), "industries": int(n_ind), "processed": int(n_comp + n_ind)}
+        self.stdout.write(self.style.SUCCESS(
+            f"[OK] rollup_signals companies={n_comp} industries={n_ind}"
+        ))
+        self.stdout.write(f"STATS {json.dumps(stats)}")

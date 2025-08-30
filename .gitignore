@@ -108,3 +108,16 @@ jspm_packages/
 
 # Serverless directories
 .serverless
+
+# Temporary test files
+create_*.py
+test_*.py
+
+# Machine learning models cache
+.cache/
+*.model
+transformers_cache/
+
+# Database dumps
+*.sql
+*.dump

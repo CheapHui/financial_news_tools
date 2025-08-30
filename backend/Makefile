@@ -99,3 +99,12 @@ aliases:
 
 link-news:
 	cd mytrading && python manage.py link_news_entities --days-back 7 --limit 800
+
+celery-up:
+	docker compose up -d celery-worker celery-beat
+
+celery-logs:
+	docker compose logs -f celery-worker celery-beat
+
+metrics:
+	curl -s http://localhost:8000/api/metrics/summary | jq .

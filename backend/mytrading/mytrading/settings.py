@@ -170,3 +170,17 @@ REST_FRAMEWORK = {
 }
 
 EMBEDDINGS_MODEL = "research.ResearchEmbedding"
+
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6380/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
+CELERY_TIMEZONE = "UTC"
+CELERY_TASK_ALWAYS_EAGER = False  # 本地測試想同步可設 True
+
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    "ingest_rss_15m":   {"task": "ops.tasks.ingest_rss_task",   "schedule": 15*60},
+    "embed_news_30m":   {"task": "ops.tasks.embed_news_task",   "schedule": 30*60},
+    "aliases_daily":    {"task": "ops.tasks.build_aliases_task", "schedule": crontab(minute=0, hour=3)},
+    "link_entities_15m":{"task": "ops.tasks.link_entities_task", "schedule": 15*60},
+    "rollup_hourly":    {"task": "ops.tasks.rollup_signals_task","schedule": 60*60},
+}

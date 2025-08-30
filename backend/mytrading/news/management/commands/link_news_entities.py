@@ -7,6 +7,7 @@ from news.models import NewsItem, NewsChunk, NewsEntity
 from django.utils import timezone
 from sentence_transformers import SentenceTransformer
 from django.apps import apps as django_apps
+import json
 
 EMBED_MODEL = os.getenv("EMBEDDING_MODEL","BAAI/bge-m3")
 DEVICE = os.getenv("EMBEDDING_DEVICE","cpu")
@@ -108,3 +109,7 @@ class Command(BaseCommand):
         for ch in qs:
             total += link_one_chunk(ch, aliases, Emb)
         self.stdout.write(self.style.SUCCESS(f"Linked entities written: {total}"))
+
+        stats = {"processed": int(total)}
+        self.stdout.write(self.style.SUCCESS(f"[OK] link_news_entities written={total}"))
+        self.stdout.write(f"STATS {json.dumps(stats)}")

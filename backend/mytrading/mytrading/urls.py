@@ -18,10 +18,12 @@ from django.contrib import admin
 from django.urls import path
 from news.views import news_matches
 from analytics.views import company_signals, industry_signals
+from ops.views import metrics_summary
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/news/<int:news_id>/matches", news_matches, name="news-matches"),
     path("api/companies/<str:ticker>/signals", company_signals, name="company-signals"),
     path("api/industries/<int:id>/signals", industry_signals, name="industry-signals"),
+    path("api/metrics/summary", metrics_summary, name="metrics-summary"),
 ]
