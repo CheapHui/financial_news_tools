@@ -7,6 +7,52 @@ from research.models import IndustryProfile, IndustryPlayer
 from research.schemas import IndustryAIOutput
 from research.llm_client import llm_json
 
+def normalize_role(role_str):
+    """将AI生成的role值标准化为有效的数据库选项"""
+    if not role_str:
+        return "producer"
+    
+    role_str = role_str.lower().strip()
+    
+    # 有效的role选项
+    valid_roles = [
+        "supplier", "producer", "distributor", "retailer", 
+        "platform", "other", "investor", "analyst", "media", "government"
+    ]
+    
+    # 直接匹配
+    if role_str in valid_roles:
+        return role_str
+    
+    # 模糊匹配
+    role_mapping = {
+        "manufacture": "producer",
+        "manufacturer": "producer",
+        "production": "producer",
+        "supply": "supplier",
+        "distribute": "distributor",
+        "distribution": "distributor",
+        "retail": "retailer",
+        "selling": "retailer",
+        "tech": "platform",
+        "technology": "platform",
+        "service": "platform",
+        "investment": "investor",
+        "analysis": "analyst",
+        "research": "analyst",
+        "news": "media",
+        "press": "media",
+        "regulation": "government",
+        "regulatory": "government",
+    }
+    
+    for key, value in role_mapping.items():
+        if key in role_str:
+            return value
+    
+    # 默认返回producer
+    return "producer"
+
 PROMPT = """\
 You are an equity research analyst. Produce a **pure JSON** response only.
 Use credible sources (10-K/20-F, investor presentations, regulator sites, reputable media).
@@ -132,7 +178,7 @@ class Command(BaseCommand):
                 industry=industry,
                 company=comp,
                 name=p.name,
-                role=p.role or "producer",
+                role=normalize_role(p.role),
                 summary_under_300w=p.summary_under_300w or "",
                 # 直接把 evidence 一齊寫入 JSON 欄位，方便往後檢索/審計
                 largest_customers_json=[c.dict() for c in p.largest_customers],

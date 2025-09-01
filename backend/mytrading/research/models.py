@@ -325,6 +325,11 @@ class AnalyticsCompanySignal(models.Model):
     details_json = models.JSONField(default=list)   # [{news_id, chunk_id, obj_type, obj_id, sim, contrib, decay, polarity}]
     top_news_ids = models.JSONField(default=list)   # [news_id,...]
 
+    # 新聞分數聚合字段
+    window_score = models.DecimalField(max_digits=12, decimal_places=6, default=0.0)  # 基於新聞分數的窗口分數
+    window_count = models.IntegerField(default=0)  # 參與計算的新聞數量
+    last_aggregated_at = models.DateTimeField(null=True, blank=True)  # 最後聚合時間
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

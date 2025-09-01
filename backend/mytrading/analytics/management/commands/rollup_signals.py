@@ -13,6 +13,7 @@ from research.models import (
     CompanyProfile, CompanyRisk, CompanyCatalyst, CompanyThesis,
     IndustryProfile, IndustryPlayer
 )
+from decimal import Decimal
 
 # 研究 object types
 COMPANY_TYPES  = ("company_profile","company_risk","company_catalyst","company_thesis")
@@ -37,6 +38,15 @@ HALF_LIFE = {
     "industry_profile":  60,
     "industry_player":   45,
 }
+
+        
+def _safe_get(d, path, default=None):
+    x = d
+    for k in path:
+        if not isinstance(x, dict) or k not in x:
+            return default
+        x = x[k]
+    return x
 
 def get_embeddings_model():
     from django.conf import settings
@@ -328,3 +338,123 @@ class Command(BaseCommand):
             f"[OK] rollup_signals companies={n_comp} industries={n_ind}"
         ))
         self.stdout.write(f"STATS {json.dumps(stats)}")
+
+
+class Command(BaseCommand):
+    help = "Roll up signals from news_scores_json into Analytics*Signal tables"
+
+    def add_arguments(self, parser):
+        parser.add_argument("--lookback-hours", type=int, default=24*7)   # 7 日窗
+        parser.add_argument("--min-decayed-weight", type=float, default=0.05)
+        parser.add_argument("--apply-overall-when-missing", action="store_true")
+
+    def handle(self, *args, **opts):
+        now = timezone.now()
+        since = now - timezone.timedelta(hours=opts["lookback_hours"])
+
+        qs = (
+            NewsItem.objects
+            .filter(published_at__gte=since, news_scores_json__isnull=False)
+            .select_related()
+            .prefetch_related("entities")
+            .order_by("published_at")
+        )
+
+        # 映射 symbol/name → entity
+        companies_by_symbol = {c.ticker: c for c in Company.objects.all()}
+        industries_by_name = {i.name: i for i in Industry.objects.all()}
+
+        comp_scores = defaultdict(lambda: {"sum": 0.0, "cnt": 0})
+        ind_scores  = defaultdict(lambda: {"sum": 0.0, "cnt": 0})
+
+        considered = 0
+
+        for item in qs.iterator(chunk_size=100):
+            payload = item.news_scores_json or {}
+            scores = payload.get("scores") or {}
+            targets = payload.get("targets") or []
+            overall = float(payload.get("sentiment_overall", 0.0))
+
+            impact = float(scores.get("impact_score", 0.0))
+            cred   = float(scores.get("credibility_score", 0.0))
+            nov    = float(scores.get("novelty_score", 0.0))
+            decay  = float(scores.get("decayed_weight", 1.0))
+
+            if decay < opts["min_decayed_weight"]:
+                continue
+
+            base = impact * cred * nov * decay
+            if base == 0:
+                continue
+
+            # 可用 link_entities 關聯的多對多作為「可被分配的名單」
+            linked_companies = list(getattr(item, "tickers").all()) if hasattr(item, "tickers") else []
+            linked_industries = list(getattr(item, "industries").all()) if hasattr(item, "industries") else []
+
+            # 先把 target 分發到對應實體
+            matched_company_ids = set()
+            matched_industry_ids = set()
+
+            for t in targets:
+                target = str(t.get("target", "")).strip()
+                sent   = float(t.get("score", 0.0))
+
+                # 公司：以 symbol 精準比對（或你可用 alias dict）
+                comp = companies_by_symbol.get(target)
+                if comp:
+                    comp_scores[comp.id]["sum"] += base * sent
+                    comp_scores[comp.id]["cnt"] += 1
+                    matched_company_ids.add(comp.id)
+                    continue
+
+                # 行業：以名稱比對（可換成 industry_code）
+                ind = industries_by_name.get(target)
+                if ind:
+                    ind_scores[ind.id]["sum"] += base * sent
+                    ind_scores[ind.id]["cnt"] += 1
+                    matched_industry_ids.add(ind.id)
+                    continue
+
+            # Fallback：如果 target 無逐一命中，而你仍想把 overall sentiment 分配到已 link 的實體
+            if opts["apply_overall_when_missing"]:
+                if linked_companies and not matched_company_ids:
+                    for comp in linked_companies:
+                        comp_scores[comp.id]["sum"] += base * overall
+                        comp_scores[comp.id]["cnt"] += 1
+                if linked_industries and not matched_industry_ids:
+                    for ind in linked_industries:
+                        ind_scores[ind.id]["sum"] += base * overall
+                        ind_scores[ind.id]["cnt"] += 1
+
+            considered += 1
+
+        # ---- 寫入結果（重算法：直接覆蓋 window_score / window_count）----
+        updated_companies = 0
+        updated_industries = 0
+
+        with transaction.atomic():
+            # 公司
+            for comp_id, agg in comp_scores.items():
+                score = float(agg["sum"])
+                cnt   = int(agg["cnt"])
+                obj, _ = AnalyticsCompanySignal.objects.get_or_create(company_id=comp_id)
+                obj.window_score = Decimal(str(score))
+                obj.window_count = cnt
+                obj.last_aggregated_at = now
+                obj.save(update_fields=["window_score", "window_count", "last_aggregated_at"])
+                updated_companies += 1
+
+            # 行業
+            for ind_id, agg in ind_scores.items():
+                score = float(agg["sum"])
+                cnt   = int(agg["cnt"])
+                obj, _ = AnalyticsIndustrySignal.objects.get_or_create(industry_id=ind_id)
+                obj.window_score = Decimal(str(score))
+                obj.window_count = cnt
+                obj.last_aggregated_at = now
+                obj.save(update_fields=["window_score", "window_count", "last_aggregated_at"])
+                updated_industries += 1
+
+        self.stdout.write(self.style.SUCCESS(
+            f"considered_news={considered} updated_companies={updated_companies} updated_industries={updated_industries}"
+        ))

@@ -77,8 +77,12 @@ ai-industry:
 	fi
 	@echo "=== 行業 AI 分析生成完成 ==="
 
-# 一鍵全自動：Seed + 生成公司 + 行業
-init-all: seed ai-company ai-industry
+# 創建基礎公司數據
+create-companies:
+	cd mytrading && python manage.py shell -c "from reference.models import Company, Industry, Sector; semiconductors = Industry.objects.filter(name='Semiconductors').first(); consumer_electronics = Industry.objects.filter(name='Consumer Electronics').first(); software = Industry.objects.filter(name__in=['Software', 'Software - Application']).first(); tech_sector = Sector.objects.filter(name='Technology').first(); companies = [{'ticker': 'TSM', 'name': 'Taiwan Semiconductor Manufacturing Company Limited', 'industry': semiconductors}, {'ticker': 'NVDA', 'name': 'NVIDIA Corporation', 'industry': semiconductors}, {'ticker': 'AAPL', 'name': 'Apple Inc.', 'industry': consumer_electronics}, {'ticker': 'MSFT', 'name': 'Microsoft Corporation', 'industry': software}]; [Company.objects.get_or_create(ticker=comp['ticker'], defaults={'name': comp['name'], 'industry': comp['industry'], 'sector': tech_sector, 'country': 'US', 'is_active': True}) for comp in companies]; print('基礎公司數據創建完成')"
+
+# 一鍵全自動：Seed + 創建公司 + 生成公司 + 行業
+init-all: seed create-companies ai-company ai-industry
 
 news-ingest:
 	cd mytrading && python manage.py ingest_rss --max 40
@@ -89,16 +93,29 @@ news-embed:
 news-full: news-ingest news-embed
 
 emb-research:
-	python manage.py build_research_embeddings --overwrite
+	cd mytrading && python manage.py build_research_embeddings --overwrite
 
 emb-research-fast:
-	python manage.py build_research_embeddings --limit 200
+	cd mytrading && python manage.py build_research_embeddings --limit 200
 
 aliases:
 	cd mytrading && python manage.py build_entity_aliases
 
 link-news:
 	cd mytrading && python manage.py link_news_entities --days-back 7 --limit 800
+
+# 信號聚合相關命令
+rollup-signals:
+	cd mytrading && python manage.py rollup_signals --days-back 7 --window-days 7 --include-industry-signal
+
+rollup-signals-fast:
+	cd mytrading && python manage.py rollup_signals --days-back 3 --window-days 3 --topk-per-chunk 3 --include-industry-signal
+
+rollup-signals-full:
+	cd mytrading && python manage.py rollup_signals --days-back 14 --window-days 7 --topk-per-chunk 10 --min-sim 0.3 --include-industry-signal --overwrite
+
+# 完整的新聞處理流水線 (新聞攝取 → 嵌入 → 實體連結 → 信號聚合)
+news-pipeline: news-full link-news rollup-signals
 
 celery-up:
 	docker compose up -d celery-worker celery-beat
@@ -108,3 +125,39 @@ celery-logs:
 
 metrics:
 	curl -s http://localhost:8000/api/metrics/summary | jq .
+
+start-server:
+	cd mytrading && python manage.py runserver 0.0.0.0:8001
+
+start-frontend:
+	cd .. && cd frontend && npm run dev
+
+# 新聞分數相關命令
+news-score:
+	cd mytrading && python manage.py score_news --since-hours 24 --model deepseek-reasoner --half-life 72
+
+rollup-news-score-signals:
+	cd mytrading && python manage.py rollup_signals --lookback-hours 168 --apply-overall-when-missing
+
+# 新聞分數完整流水線 (分數 → 聚合)
+news-score-pipeline:
+	cd mytrading && python manage.py process_news_pipeline --since-hours 24 --model deepseek-reasoner --half-life 72 --lookback-hours 168 --apply-overall-when-missing
+
+# 研究匹配完整流水線 (攝取 → 嵌入 → 連結 → 聚合)
+news-research-pipeline: news-full link-news rollup-signals
+
+# 完整新聞分析流水線命令（包含新聞攝取）
+full-pipeline:
+	cd mytrading && python manage.py process_news_pipeline --max-news 40 --since-hours 24 --lookback-hours 168 --apply-overall-when-missing --verbose
+
+full-pipeline-fast:
+	cd mytrading && python manage.py process_news_pipeline --max-news 20 --since-hours 12 --lookback-hours 72 --apply-overall-when-missing
+
+full-pipeline-skip-reco:
+	cd mytrading && python manage.py process_news_pipeline --max-news 40 --since-hours 24 --lookback-hours 168 --apply-overall-when-missing --skip-recommendations --verbose
+
+full-pipeline-no-ingest:
+	cd mytrading && python manage.py process_news_pipeline --skip-ingest --since-hours 24 --lookback-hours 168 --apply-overall-when-missing --verbose
+
+# 舊的命令別名（向後兼容）
+recommendations: full-pipeline

@@ -1,5 +1,9 @@
 # apps/news/models.py
 from django.db import models
+from pgvector.django import VectorField
+from django.db import models
+from django.utils import timezone
+from django.contrib.postgres.indexes import GinIndex
 
 class NewsItem(models.Model):
     source = models.CharField(max_length=100)
@@ -12,12 +16,23 @@ class NewsItem(models.Model):
     word_count = models.IntegerField(default=0)
     checksum = models.CharField(max_length=64, blank=True, default="")
     status = models.CharField(max_length=20, default="ready")  # ready/errored
+    news_scores_json = models.JSONField(null=True, blank=True)
+    scores_updated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         indexes = [
             models.Index(fields=["published_at"]),
             models.Index(fields=["lang"]),
+            GinIndex(
+            name="idx_news_scores_json_gin",
+            fields=["news_scores_json"],)
         ]
+
+    def mark_scored(self, payload: dict):
+        self.news_scores_json = payload
+        self.scores_updated_at = timezone.now()
+        self.save(update_fields=["news_scores_json", "scores_updated_at"])
+
     def __str__(self):
         return self.title
 
@@ -58,3 +73,7 @@ class NewsEntity(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=["news"]), models.Index(fields=["target_type","target_id"])]
+
+
+
+
